@@ -1,5 +1,5 @@
 /*
- * Snipe Board v1.2 - per edeltrein: het gat voor elke edel, de moeilijkheid,
+ * Snipe Board v1.3 - per edeltrein: het gat voor elke edel, de moeilijkheid,
  * het mikpunt en de dekking door je eigen supports.
  *
  * Gebruik: in de snellijst zetten (of in de scriptbibliotheek, zodat het op
@@ -294,10 +294,8 @@
         '#snipe-board .sb-bad{color:#a8322a;font-weight:bold}' +
         '#snipe-board .sb-quiet{color:#7a6a4a}' +
         '#snipe-board .sb-ms{font-family:monospace;font-size:12px}' +
-        '#' + FAB_ID + '{position:fixed;left:0;top:200px;z-index:12000;width:32px;height:32px;cursor:pointer;' +
-            'background:#f4e4bc center/24px no-repeat;border:1px solid #804000;border-left:none;' +
-            'border-radius:0 5px 5px 0;box-shadow:1px 1px 4px rgba(0,0,0,.4)}' +
-        '#' + FAB_ID + ':hover{background-color:#fff5da}';
+        '#' + FAB_ID + '{background-size:24px !important;background-position:center !important;' +
+            'background-repeat:no-repeat !important;cursor:pointer}';
 
     function ensureCss() {
         if (!$('#snipe-board-css').length) $('<style id="snipe-board-css">').text(CSS).appendTo('head');
@@ -536,12 +534,22 @@
         });
     }
 
+    // The button sits in the game's own quest column on the left, like Toxic
+    // Donut's: appended to #questlog, which is created when the page has none.
     function addFab() {
         ensureCss();
         if ($('#' + FAB_ID).length) return;
+        var log = $('#questlog, #questlog_new').first();
+        if (!log.length) {
+            var host = $('.maincell').first();
+            (host.length ? host : $('body')).prepend('<div style="position:fixed;"><div id="questlog" class="questlog"></div></div>');
+            log = $('#questlog');
+        }
         var icon = (window.image_base || '') + 'unit/unit_snob.png';
-        $('<div id="' + FAB_ID + '" title="Snipe Board">').css('background-image', 'url(' + icon + ')')
-            .appendTo('body')
+        $('<div id="' + FAB_ID + '" class="quest opened" title="Snipe Board">')
+            .css('background-image', 'url(' + icon + ')')
+            .append('<div class="quest_progress" style="width:0;"></div>')
+            .appendTo(log)
             .on('click', function () {
                 if (onIncomingsPage()) {
                     if (!$('#' + BOARD_ID).length) run(false);
@@ -552,13 +560,18 @@
             });
     }
 
+    // Loaded automatically (script library) the board only opens by itself on
+    // the incomings page; elsewhere it just adds the button. A second run on
+    // the same page is a click on the quickbar entry: then it opens.
+    var clicked = !!window.__snipeBoardLoaded;
+    window.__snipeBoardLoaded = true;
     addFab();
     if (onIncomingsPage()) {
         run(false);
         var pending = null;
         try { pending = sessionStorage.getItem(PENDING_KEY); sessionStorage.removeItem(PENDING_KEY); } catch (e) { /* none */ }
         if (pending) openCalculator(pending);
-    } else {
+    } else if (clicked) {
         run(true);
     }
 })();

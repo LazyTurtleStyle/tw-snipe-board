@@ -127,8 +127,16 @@ async def main():
         await page.goto('https://nl116.tribalwars.nl/game.php?village=1&screen=overview')
         await boot('overview')
         await page.wait_for_timeout(800)
-        check('side button on another screen', await page.locator('#snipe-board-fab').count() == 1)
-        check('dialog board fetched incomings', await page.locator('#snipe-board tr').count() == 9)
+        check('button in the quest column', await page.locator('#questlog #snipe-board-fab').count() == 1)
+        check('auto-load does not open the board elsewhere', await page.locator('#snipe-board').count() == 0)
+        await page.evaluate("$('#snipe-board-fab').trigger('click')")  # no game CSS here, so it has no size
+        await page.wait_for_timeout(800)
+        check('button opens the board, fetching incomings', await page.locator('#snipe-board tr').count() == 9)
+        await page.evaluate("$('#d_snipe_board_dialog').remove()")
+        await page.add_script_tag(content=JS)
+        await page.wait_for_timeout(800)
+        check('second run (quickbar click) opens it too', await page.locator('#snipe-board tr').count() == 9)
+        check('still one button', await page.locator('#snipe-board-fab').count() == 1)
         check('no page errors', not errors, errors)
         await browser.close()
 

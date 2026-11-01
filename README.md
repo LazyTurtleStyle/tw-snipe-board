@@ -23,7 +23,11 @@ Het script leest alleen pagina's. Het verstuurt, annuleert of hernoemt niets.
 4. **Selecteer open** vinkt de edels aan die nog niet gedekt zijn en geen moeilijk gat hebben;
    **Naar Snipe Calculator** opent de calculator met die doelen.
 
-Op elk ander scherm staat links een knop met het edel-icoon die het board in een venster opent.
+Links in de questlijst van het spel staat een knop met het edel-icoon. Op de aanvallenpagina scrolt die naar het
+board; op elk ander scherm opent hij het board in een venster.
+
+**Automatisch laden (scriptbibliotheek):** het board opent dan vanzelf alleen op de aanvallenpagina. Op andere
+schermen zet het script alleen de knop neer; klik op de knop of op het script in de snellijst om het te openen.
 
 ## Edels herkennen
 
