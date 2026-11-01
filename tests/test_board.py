@@ -64,12 +64,12 @@ OTHER = ('<html><body><span id="serverTime">21:50:00</span> <span id="serverDate
          '<h2>Dorpsoverzicht</h2></body></html>')
 
 EXPECT_IMPORT = [
-    '549|403,2026-10-31T22:26:03.475,2',
-    '551|396,2026-10-31T22:52:26.666,8',
-    '551|396,2026-10-31T23:10:28.663,9',
-    '546|403,2026-11-01T00:40:01.357,11',
-    '546|403,2026-11-01T00:40:01.476,13',
-    '549|410,2026-11-02T13:58:12.896,14',
+    '549|403,2026-10-31T22:26:03.510,2',
+    '551|396,2026-10-31T22:52:26.687,8',
+    '551|396,2026-10-31T23:10:28.684,9',
+    '546|403,2026-11-01T00:40:01.387,11',
+    '546|403,2026-11-01T00:40:01.487,13',
+    '549|410,2026-11-02T13:58:12.917,14',
 ]
 
 
@@ -107,21 +107,46 @@ async def main():
 
         await page.goto('https://nl116.tribalwars.nl/game.php?village=1&screen=overview_villages&mode=incomings')
         await boot('overview_villages')
-        await page.click('#snipe-board .sb-refresh')
-        await page.wait_for_timeout(500)
+        await page.wait_for_timeout(600)   # auto-refresh of the coverage on open
         text = await page.inner_text('#snipe-board')
-        check('8 nobles in 4 villages, 1 covered', '8 edels in 4 dorpen, 1 gedekt' in text, text[:120])
+        check('8 nobles, 1 OK, refreshed on open', '8 edels' in text and '1 OK' in text and 'laatste refresh' in text, text[:160])
         check('C-SNIPE noble skipped', '.810' not in text)
-        check('covered noble', 'gedekt (-40 ms)' in text)
-        check('support before anti-snipe flagged', 'landt vóór anti-snipe (-32 ms)' in text)
+        check('covered noble shows SNIPE OK', 'SNIPE OK (-40 ms)' in text)
+        check('support before anti-snipe flagged', 'support vóór anti-snipe (-32 ms)' in text)
+        check('open nobles show SNIPE THIS', text.count('SNIPE THIS') >= 5, text.count('SNIPE THIS'))
         check('full time when the second changes', '23:10:28.684' in text)
+        check('no aim column any more', 'Mikpunt' not in text)
+        check('pick button names its selection', 'Selecteer makkelijk + gemiddeld + vrij (SNIPE THIS)' in text)
         await page.click('#snipe-board .sb-pick')
         picked = await page.eval_on_selector_all('#snipe-board .sb-sel:checked', 'els => els.length')
         check('pick selects open easy/mid/free', picked == 6, picked)
         await page.click('#snipe-board .sb-calc')
         await page.wait_for_timeout(2500)
         imported = await page.evaluate('window.__imported')
-        check('calculator import lines', (imported or '').split('\n') == EXPECT_IMPORT, imported)
+        check('calculator gets the nobles own times', (imported or '').split('\n') == EXPECT_IMPORT, imported)
+        # settings: vertical rows, ticking "Moeilijk" changes the button and the pick
+        await page.evaluate("$('#d_x').remove()")
+        await page.click('#snipe-board .sb-gear')
+        rows = await page.locator('#snipe-board .sb-settings .sb-row').count()
+        check('settings one per row', rows == 6, rows)
+        await page.check('#snipe-board .sb-chk[value=hard]')
+        await page.wait_for_timeout(200)
+        check('button follows the setting', 'Selecteer alles (SNIPE THIS)' in await page.inner_text('#snipe-board .sb-pick'))
+        await page.click('#snipe-board .sb-pick')
+        check('pick now includes the hard one', await page.eval_on_selector_all('#snipe-board .sb-sel:checked', 'els => els.length') == 7)
+        await page.uncheck('#snipe-board .sb-chk[value=hard]')
+        # filter
+        await page.click('#snipe-board .sb-filter a[data-filter=covered]')
+        await page.wait_for_timeout(200)
+        check('filter SNIPE OK shows only the covered one', await page.locator('#snipe-board .sb-sel').count() == 1)
+        await page.click('#snipe-board .sb-filter a[data-filter=all]')
+        await page.wait_for_timeout(200)
+        # rename covered nobles
+        await page.click('#snipe-board .sb-rename')
+        await page.wait_for_timeout(600)
+        check('rename covered noble', await page.evaluate('window.__renamed') == ['4=Edel SNIPE OK [40 ms]'], await page.evaluate('window.__renamed'))
+        check('table label updated in place', 'Edel SNIPE OK [40 ms]' in await page.inner_text('#incomings_table'))
+        check('collapse is an arrow', await page.inner_text('#snipe-board .sb-toggle') in ('\u25b2', '\u25bc'))
 
         state['other'] = True
         await page.goto('https://nl116.tribalwars.nl/game.php?village=1&screen=overview')

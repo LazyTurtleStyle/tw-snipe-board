@@ -4,30 +4,32 @@ Snellijstscript voor Tribal Wars (getest op nl116). Per edeltrein op je eigen do
 
 - **het gat** voor elke edel: hoeveel ms er zit tussen het bevel ervoor en de edel, en welk bevel dat is;
 - **de moeilijkheid**: makkelijk, gemiddeld, moeilijk of vrij (grenzen instelbaar);
-- **het mikpunt**: waar je snipe moet landen, met de marge in ms;
-- **de dekking**: of er al een eigen support voor de edel landt, of dat hij voor een anti-snipe landt.
+- **de dekking**: `SNIPE OK (-n ms)` als er al een eigen support voor de edel landt, anders `SNIPE THIS`
+  (met een waarschuwing als je support voor een anti-snipe landt).
 
-Met **Naar Snipe Calculator** gaan de aangevinkte edels met hun mikpunt naar
-[Toxic Donut's Snipe Calculator](https://forum.tribalwars.nl/index.php?forums/goedgekeurde-scripts.415/).
+## Knoppen
 
-Het script leest alleen pagina's. Het verstuurt, annuleert of hernoemt niets.
+| Knop | Wat |
+| --- | --- |
+| ✔ | dekking verversen (haalt je supportbevelen op; gebeurt ook automatisch bij openen, uit te zetten) |
+| ▲ / ▼ | board in- of uitklappen |
+| ✎ | gedekte edels hernoemen naar `Edel SNIPE OK [n ms]` |
+| ⚙ | instellingen |
+| **Selecteer …** | vinkt de edels aan die bij je instelling passen; de knop noemt de keuze, bv. "Selecteer makkelijk + gemiddeld (SNIPE THIS)" |
+| **Naar Snipe Calculator** | zet de aangevinkte edels (met hun eigen aankomsttijd) in Toxic Donut's Snipe Calculator |
+| Alle / SNIPE THIS / SNIPE OK | filter |
 
-## Gebruik
+Het script verstuurt en annuleert nooit iets. Hernoemen gebeurt alleen als je op ✎ klikt.
 
-1. Zet in de snellijst:
-   ```
-   javascript:$.getScript('https://cdn.jsdelivr.net/gh/<owner>/<repo>@main/snipe_board.js');
-   ```
-2. Open **Overzichten > Aankomend > Aanval** en klik op het script. Het board staat boven de tabel.
-3. **Dekking verversen** haalt je eigen supportbevelen op (een verzoek per klik).
-4. **Selecteer open** vinkt de edels aan die nog niet gedekt zijn en geen moeilijk gat hebben;
-   **Naar Snipe Calculator** opent de calculator met die doelen.
+## Laden
 
-Links in de questlijst van het spel staat een knop met het edel-icoon. Op de aanvallenpagina scrolt die naar het
-board; op elk ander scherm opent hij het board in een venster.
+```
+javascript: $.getScript('https://cdn.jsdelivr.net/gh/LazyTurtleStyle/tw-snipe-board@v1.5/snipe_board.js');
+```
 
-**Automatisch laden (scriptbibliotheek):** het board opent dan vanzelf alleen op de aanvallenpagina. Op andere
-schermen zet het script alleen de knop neer; klik op de knop of op het script in de snellijst om het te openen.
+Gebruik een versienummer (`@v1.5`): `@main` kan bij jsDelivr tot 12 uur een oude versie blijven geven.
+Op de aanvallenpagina staat het board boven de tabel. Elders zet het script een edel-knop in de questlijst links;
+die opent het board in een venster. Met automatisch laden opent het board elders niet vanzelf.
 
 ## Edels herkennen
 
@@ -35,21 +37,9 @@ Een bevel telt als edel als het label begint met `Edel` of `Noble`, of als het e
 Labels met `C-SNIPE` of `RECAP` worden overgeslagen. Een support telt als dekking als het doel in de
 eerste cel staat: het standaardlabel ("Ondersteuning voor ... (x|y)") of een label met coordinaten.
 
-## Instellingen
-
-| Instelling | Standaard |
-| --- | --- |
-| Makkelijk vanaf | 40 ms gat |
-| Moeilijk onder | 15 ms gat |
-| Mikpunt | midden van het gat (of een vast aantal ms voor de edel) |
-
-Instellingen en de laatst opgehaalde dekking staan per wereld in `localStorage`.
-
 ## Testen
 
 ```
 pip install playwright && python -m playwright install chromium
 python tests/test_board.py
 ```
-
-De test draait het script in headless Chromium tegen nagebouwde spelpagina's en een nep-calculator.

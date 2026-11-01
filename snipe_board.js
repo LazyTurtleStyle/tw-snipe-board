@@ -1,31 +1,34 @@
 /*
- * Snipe Board v1.4 - per edeltrein: het gat voor elke edel, de moeilijkheid,
- * het mikpunt en de dekking door je eigen supports.
+ * Snipe Board v1.5 - per edeltrein: het gat voor elke edel, de moeilijkheid
+ * en of er al een eigen support voor landt (SNIPE OK) of nog niet (SNIPE THIS).
  *
- * Gebruik: in de snellijst zetten (of in de scriptbibliotheek, zodat het op
- * elke pagina laadt). Op de inkomende-aanvallenpagina staat het board boven
- * de tabel; op elk ander scherm opent de knop links in beeld het board in een
- * venster en haalt het daarvoor de aanvallenpagina op. "Dekking verversen"
- * haalt met een verzoek je eigen supportbevelen op. Het script verstuurt,
- * annuleert of hernoemt niets.
+ * Gebruik: in de snellijst zetten (eventueel met automatisch laden). Op de
+ * inkomende-aanvallenpagina staat het board boven de tabel; op elk ander scherm
+ * opent de edel-knop in de questlijst het board in een venster. Het script
+ * leest pagina's; alleen op jouw klik hernoemt het gedekte edels naar
+ * "Edel SNIPE OK [n ms]". Versturen of annuleren doet het nooit.
  */
 (function () {
     'use strict';
 
+    var VERSION = '1.5';
+    var LEVELS = {easy: 'Makkelijk', mid: 'Gemiddeld', hard: 'Moeilijk', free: 'Vrij'};
+    var STATES = {open: 'SNIPE THIS', covered: 'SNIPE OK'};
     var DEFAULTS = {
         easyMs: 40,           // gat >= dit: makkelijk
         hardMs: 15,           // gat < dit: moeilijk (daartussen gemiddeld)
-        aimMode: 'mid',       // 'mid' = midden van het gat, 'before' = aimBeforeMs voor de edel
-        aimBeforeMs: 10,
-        loneGapMs: 40,        // edel zonder iets ervoor: mik binnen deze ms voor de edel
+        pickLevels: ['easy', 'mid', 'free'],   // wat "Selecteer" aanvinkt
+        pickStates: ['open'],
+        filter: 'all',        // all | open | covered
+        autoRefresh: true,    // dekking ophalen bij het openen van het board
+        staleMin: 15,         // oudere dekking kleurt rood
         trainWindowMs: 1500,  // alleen bevelen binnen deze tijd voor een edel tellen als "ervoor"
-        staleMin: 15,         // dekking ouder dan dit valt op
         nobleLabels: ['edel', 'noble', 'snob'],
         ignoreLabels: ['c-snipe', 'c snipe', 'c- snipe', 'recap']
     };
+    var SAVED = ['easyMs', 'hardMs', 'pickLevels', 'pickStates', 'filter', 'autoRefresh'];
     var TD_CALC = 'https://media.innogamescdn.com/com_DS_NL/scripts/Toxic-Donuts-Snipe-Calculator._206313.js';
 
-    var VERSION = '1.4';
     var BOARD_ID = 'snipe-board';
     var FAB_ID = 'snipe-board-fab';
     var DIALOG_ID = 'snipe_board_dialog';
@@ -35,14 +38,17 @@
     var SETTINGS = loadSettings();
 
     function loadSettings() {
-        var s = $.extend({}, DEFAULTS);
-        try { $.extend(s, JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}); } catch (e) { /* defaults */ }
+        var s = $.extend(true, {}, DEFAULTS);
+        try {
+            var saved = JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {};
+            SAVED.forEach(function (k) { if (saved[k] !== undefined) s[k] = saved[k]; });
+        } catch (e) { /* defaults */ }
         return s;
     }
 
     function saveSettings() {
-        var keep = {easyMs: SETTINGS.easyMs, hardMs: SETTINGS.hardMs,
-            aimMode: SETTINGS.aimMode, aimBeforeMs: SETTINGS.aimBeforeMs};
+        var keep = {};
+        SAVED.forEach(function (k) { keep[k] = SETTINGS[k]; });
         try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(keep)); } catch (e) { /* private mode */ }
     }
 
@@ -205,9 +211,7 @@
                 lastNoble = c.arrival;
                 if (c.ignored || c.arrival <= now) return;
                 var prev = (i > 0 && c.arrival - list[i - 1].arrival <= SETTINGS.trainWindowMs) ? list[i - 1] : null;
-                var gap = prev ? c.arrival - prev.arrival : null;
-                var a = aim(c, prev);
-                rows.push({cmd: c, prev: prev, gap: gap, aim: a.aim, keep: a.keep,
+                rows.push({cmd: c, prev: prev, gap: prev ? c.arrival - prev.arrival : null,
                     cover: coverage(c, prev, after, supports)});
             });
             if (!rows.length) return;
@@ -236,25 +240,14 @@
         return {state: 'open'};
     }
 
-    // Where to land: the middle of the gap, or a fixed ms before the noble
-    // (never before the command in front of it). keep = ms either side that
-    // still lands inside the gap.
-    function aim(noble, prev) {
-        var lo = prev ? prev.arrival + 1 : noble.arrival - SETTINGS.loneGapMs;
-        var hi = noble.arrival - 1;
-        if (hi < lo) return {aim: null, keep: 0};
-        if (SETTINGS.aimMode === 'before') {
-            var t = Math.max(lo, noble.arrival - SETTINGS.aimBeforeMs);
-            return {aim: t, keep: Math.min(t - lo, hi - t)};
-        }
-        return {aim: Math.floor((lo + hi) / 2), keep: Math.floor((hi - lo) / 2)};
-    }
+    // "early" (a support in front of the anti-snipe) still needs a snipe: open.
+    function stateKey(cover) { return cover.state === 'covered' ? 'covered' : 'open'; }
 
     function level(gap) {
-        if (gap === null) return {key: 'free', pick: true, text: 'Vrij', tip: 'Niets in de 1,5 s ervoor'};
-        if (gap >= SETTINGS.easyMs) return {key: 'easy', pick: true, text: 'Makkelijk', tip: 'Gat van ' + SETTINGS.easyMs + ' ms of meer'};
-        if (gap >= SETTINGS.hardMs) return {key: 'mid', pick: true, text: 'Gemiddeld', tip: 'Gat tussen ' + SETTINGS.hardMs + ' en ' + SETTINGS.easyMs + ' ms'};
-        return {key: 'hard', pick: false, text: 'Moeilijk', tip: 'Gat kleiner dan ' + SETTINGS.hardMs + ' ms'};
+        if (gap === null) return {key: 'free', tip: 'Niets in de 1,5 s ervoor'};
+        if (gap >= SETTINGS.easyMs) return {key: 'easy', tip: 'Gat van ' + SETTINGS.easyMs + ' ms of meer'};
+        if (gap >= SETTINGS.hardMs) return {key: 'mid', tip: 'Gat tussen ' + SETTINGS.hardMs + ' en ' + SETTINGS.easyMs + ' ms'};
+        return {key: 'hard', tip: 'Gat kleiner dan ' + SETTINGS.hardMs + ' ms'};
     }
 
     function prevName(prev) {
@@ -264,18 +257,39 @@
         return (prev.own ? 'eigen ' : '') + word.toLowerCase() + ' ' + fmtMs(prev.arrival);
     }
 
+    function pickLabel() {
+        var lv = ['easy', 'mid', 'hard', 'free'].filter(function (k) { return SETTINGS.pickLevels.indexOf(k) !== -1; });
+        var names = lv.length === 4 ? 'alles' : lv.map(function (k) { return LEVELS[k].toLowerCase(); }).join(' + ');
+        var st = SETTINGS.pickStates;
+        var suffix = st.length === 1 ? ' (' + STATES[st[0]] + ')' : '';
+        return 'Selecteer ' + (names || 'niets') + suffix;
+    }
+
     // ---------------------------------------------------------------- render
 
     var CSS =
         '#snipe-board{margin:0 0 10px;border:1px solid #804000;background:#fff5da}' +
         '#snipe-board .sb-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:5px 8px;' +
             'background:linear-gradient(#e3c485,#c1a264);border-bottom:1px solid #804000}' +
-        '#snipe-board .sb-title{font-weight:bold;font-size:13px;margin-right:6px}' +
+        '#snipe-board .sb-title{font-weight:bold;font-size:13px;margin-right:4px}' +
+        '#snipe-board .sb-icons{display:inline-flex;margin-right:6px}' +
+        '#snipe-board .sb-icons .btn{padding:2px 7px;min-width:0;margin:0;border-radius:0;font-size:12px;line-height:16px}' +
+        '#snipe-board .sb-icons .btn:first-child{border-radius:4px 0 0 4px}' +
+        '#snipe-board .sb-icons .btn:last-child{border-radius:0 4px 4px 0}' +
+        '#snipe-board .sb-icons .sb-refresh{color:#5fd34a}' +
+        '#snipe-board .sb-filter{display:inline-flex;margin-left:6px}' +
+        '#snipe-board .sb-filter a{padding:1px 7px;border:1px solid #804000;margin-left:-1px;background:#f4e4bc;' +
+            'color:#5a3a10;font-size:11px;text-decoration:none}' +
+        '#snipe-board .sb-filter a.sb-on{background:#804000;color:#fff}' +
+        '#snipe-board .sb-filter a:first-child{border-radius:4px 0 0 4px}' +
+        '#snipe-board .sb-filter a:last-child{border-radius:0 4px 4px 0}' +
         '#snipe-board .sb-meta{margin-left:auto;font-size:11px}' +
         '#snipe-board .sb-stale{color:#a8322a;font-weight:bold}' +
-        '#snipe-board .sb-settings{display:none;padding:6px 8px;background:#f4e4bc;border-bottom:1px solid #c1a264}' +
-        '#snipe-board .sb-settings label{margin-right:14px;white-space:nowrap}' +
-        '#snipe-board .sb-settings input[type=number]{width:46px}' +
+        '#snipe-board .sb-settings{display:none;padding:8px 10px;background:#f4e4bc;border-bottom:1px solid #c1a264}' +
+        '#snipe-board .sb-settings .sb-row{display:flex;align-items:center;gap:8px;margin:4px 0}' +
+        '#snipe-board .sb-settings .sb-row > span:first-child{width:170px;font-weight:bold}' +
+        '#snipe-board .sb-settings label{white-space:nowrap;margin-right:10px}' +
+        '#snipe-board .sb-settings input[type=number]{width:50px}' +
         '#snipe-board table.vis{width:100%;margin:0}' +
         '#snipe-board table.vis td{white-space:nowrap;vertical-align:middle}' +
         '#snipe-board tr.sb-first td{border-top:2px solid #804000}' +
@@ -292,6 +306,7 @@
         '#snipe-board .sb-hard{background:linear-gradient(#d65448,#a8322a)}' +
         '#snipe-board .sb-free{background:linear-gradient(#6a9bd0,#3e6fa3)}' +
         '#snipe-board .sb-ok{color:#2e7d1f;font-weight:bold}' +
+        '#snipe-board .sb-this{color:#8a5a00;font-weight:bold}' +
         '#snipe-board .sb-bad{color:#a8322a;font-weight:bold}' +
         '#snipe-board .sb-quiet{color:#7a6a4a}' +
         '#snipe-board .sb-ms{font-family:monospace;font-size:12px}' +
@@ -306,74 +321,91 @@
         if (!$('#' + id).length) $('<style id="' + id + '">').text(CSS).appendTo('head');
     }
 
+    function checks(group, all, chosen) {
+        return Object.keys(all).map(function (k) {
+            return '<label><input type="checkbox" class="sb-chk" data-group="' + group + '" value="' + k + '"' +
+                (chosen.indexOf(k) !== -1 ? ' checked' : '') + '> ' + all[k] + '</label>';
+        }).join('');
+    }
+
     function settingsHtml() {
         var s = SETTINGS;
         return '<div class="sb-settings">' +
-            '<label>Makkelijk vanaf <input type="number" class="sb-set" data-key="easyMs" value="' + s.easyMs + '"> ms gat</label>' +
-            '<label>Moeilijk onder <input type="number" class="sb-set" data-key="hardMs" value="' + s.hardMs + '"> ms gat</label>' +
-            '<label>Mikpunt <select class="sb-set" data-key="aimMode">' +
-            '<option value="mid"' + (s.aimMode === 'mid' ? ' selected' : '') + '>midden van het gat</option>' +
-            '<option value="before"' + (s.aimMode === 'before' ? ' selected' : '') + '>vast aantal ms voor de edel</option>' +
-            '</select></label>' +
-            '<label>ms voor de edel <input type="number" class="sb-set" data-key="aimBeforeMs" value="' + s.aimBeforeMs + '"></label>' +
-            '<a href="#" class="btn sb-reset">Standaard</a></div>';
+            '<div class="sb-row"><span>Makkelijk vanaf</span><input type="number" class="sb-set" data-key="easyMs" value="' + s.easyMs + '"> ms gat</div>' +
+            '<div class="sb-row"><span>Moeilijk onder</span><input type="number" class="sb-set" data-key="hardMs" value="' + s.hardMs + '"> ms gat</div>' +
+            '<div class="sb-row"><span>Selecteer-knop: moeilijkheid</span>' + checks('pickLevels', LEVELS, s.pickLevels) + '</div>' +
+            '<div class="sb-row"><span>Selecteer-knop: status</span>' + checks('pickStates', STATES, s.pickStates) + '</div>' +
+            '<div class="sb-row"><span>Dekking</span><label><input type="checkbox" class="sb-auto"' + (s.autoRefresh ? ' checked' : '') +
+                '> automatisch verversen bij openen</label></div>' +
+            '<div class="sb-row"><span></span><a href="#" class="btn sb-reset">Standaard</a></div></div>';
     }
 
     function coverHtml(c) {
-        if (c.state === 'covered') return '<span class="sb-ok">✔ gedekt (' + c.delta + ' ms)</span>';
-        if (c.state === 'early') return '<span class="sb-bad">⚠ landt vóór anti-snipe (' + c.delta + ' ms)</span>';
-        if (c.state === 'unknown') return '<span class="sb-quiet">nog niet opgehaald</span>';
-        return '<span class="sb-quiet">open</span>';
+        if (c.state === 'covered') return '<span class="sb-ok">✔ SNIPE OK (' + c.delta + ' ms)</span>';
+        if (c.state === 'early') return '<span class="sb-bad">⚠ SNIPE THIS · support vóór anti-snipe (' + c.delta + ' ms)</span>';
+        if (c.state === 'unknown') return '<span class="sb-quiet">?</span>';
+        return '<span class="sb-this">SNIPE THIS</span>';
     }
 
-    function boardHtml(trains, supports, inDialog) {
+    function boardHtml(trains, supports, inDialog, collapsed) {
         var nobles = 0, covered = 0;
         trains.forEach(function (t) {
             t.rows.forEach(function (r) { nobles++; if (r.cover.state === 'covered') covered++; });
         });
         var age = supports ? Math.round((serverNowMs() - supports.at) / 60000) : null;
-        var coverMeta = !supports ? '<span class="sb-stale">dekking nog niet opgehaald</span>' :
-            age >= SETTINGS.staleMin ? '<span class="sb-stale">dekking ' + age + ' min oud, ververs</span>' :
-            'dekking van ' + (age < 1 ? 'zojuist' : age + ' min geleden');
+        var refreshed = !supports ? '<span class="sb-stale">nog niet ververst</span>' :
+            '<span' + (age >= SETTINGS.staleMin ? ' class="sb-stale"' : '') + '>' +
+            fmtTime(supports.at).slice(0, 5) + ' laatste refresh</span>';
+        var f = SETTINGS.filter;
         var html = '<div id="' + BOARD_ID + '"' + (inDialog ? ' style="width:' + Math.min(980, $(window).width() - 80) + 'px"' : '') + '>' +
             '<div class="sb-head"><span class="sb-title">Snipe Board <span class="sb-quiet" style="font-weight:normal;font-size:10px">v' + VERSION + '</span></span>' +
-            '<a href="#" class="btn sb-refresh">Dekking verversen</a>' +
-            '<a href="#" class="btn sb-pick">Selecteer open</a>' +
+            '<span class="sb-icons">' +
+                '<a href="#" class="btn sb-refresh" title="Dekking verversen">✔</a>' +
+                (inDialog ? '' : '<a href="#" class="btn sb-toggle" title="In- of uitklappen">' + (collapsed ? '▼' : '▲') + '</a>') +
+                '<a href="#" class="btn sb-rename" title="Gedekte edels hernoemen naar Edel SNIPE OK [n ms]">✎</a>' +
+                '<a href="#" class="btn sb-gear" title="Instellingen">⚙</a>' +
+            '</span>' +
+            '<a href="#" class="btn sb-pick">' + pickLabel() + '</a>' +
             '<a href="#" class="btn sb-calc">Naar Snipe Calculator</a>' +
-            '<a href="#" class="btn sb-gear">Instellingen</a>' +
-            (inDialog ? '' : '<a href="#" class="btn sb-toggle">Inklappen</a>') +
-            '<span class="sb-meta">' + nobles + ' edels in ' + trains.length + ' dorpen, ' + covered +
-            ' gedekt · ' + coverMeta + '</span></div>' + settingsHtml() + '<div class="sb-body">';
-        if (!trains.length) {
-            html += '<div style="padding:8px">Geen edels in de lucht.</div>';
+            '<span class="sb-filter" title="Toon">' +
+                '<a href="#" data-filter="all"' + (f === 'all' ? ' class="sb-on"' : '') + '>Alle</a>' +
+                '<a href="#" data-filter="open"' + (f === 'open' ? ' class="sb-on"' : '') + '>SNIPE THIS</a>' +
+                '<a href="#" data-filter="covered"' + (f === 'covered' ? ' class="sb-on"' : '') + '>SNIPE OK</a>' +
+            '</span>' +
+            '<span class="sb-meta">' + nobles + ' edels · ' + covered + ' OK · ' + refreshed + '</span></div>' +
+            settingsHtml() + '<div class="sb-body"' + (collapsed ? ' style="display:none"' : '') + '>';
+        var shown = 0;
+        var body = '';
+        trains.forEach(function (t) {
+            var lastSecond = null, first = true;
+            t.rows.forEach(function (r) {
+                var st = stateKey(r.cover);
+                if (f !== 'all' && r.cover.state !== 'unknown' && st !== f) return;
+                shown++;
+                var lv = level(r.gap);
+                var gapText = r.gap === null ? '<span class="sb-quiet">niets in de 1,5 s ervoor</span>' :
+                    '<b>' + r.gap + ' ms</b> <span class="sb-quiet">na ' + escapeHtml(prevName(r.prev)) + '</span>';
+                var second = Math.floor(r.cmd.arrival / 1000);
+                var when = (second !== lastSecond ? fmtTime(r.cmd.arrival) : '') + fmtMs(r.cmd.arrival);
+                lastSecond = second;
+                var box = '<input type="checkbox" class="sb-sel" data-x="' + t.x + '" data-y="' + t.y +
+                    '" data-arr="' + r.cmd.arrival + '" data-id="' + (r.cmd.id || '') + '" data-level="' + lv.key +
+                    '" data-state="' + st + '" data-delta="' + (r.cover.delta || '') + '" data-label="' + escapeHtml(r.cmd.label) + '">';
+                body += '<tr class="sb-l-' + lv.key + (first ? ' sb-first' : '') + '">' +
+                    '<td>' + box + '</td>' +
+                    '<td>' + (first ? '<b>' + escapeHtml(t.name) + '</b> <span class="sb-quiet">(' + t.x + '|' + t.y + ')</span>' : '') + '</td>' +
+                    '<td class="sb-ms">' + when + '</td>' +
+                    '<td>' + gapText + '</td>' +
+                    '<td><span class="sb-chip sb-' + lv.key + '" title="' + lv.tip + '">' + LEVELS[lv.key] + '</span></td>' +
+                    '<td>' + coverHtml(r.cover) + '</td></tr>';
+                first = false;
+            });
+        });
+        if (!shown) {
+            html += '<div style="padding:8px">' + (nobles ? 'Niets in dit filter.' : 'Geen edels in de lucht.') + '</div>';
         } else {
             html += '<table class="vis"><tr><th style="width:18px"><input type="checkbox" class="sb-all" title="Alles"></th>' +
-                '<th>Dorp</th><th>Edel landt</th><th>Gat ervoor</th><th>Moeilijkheid</th><th>Mikpunt</th><th>Dekking</th></tr>';
-            trains.forEach(function (t) {
-                var lastSecond = null;
-                t.rows.forEach(function (r, i) {
-                    var lv = level(r.gap);
-                    var gapText = r.gap === null ? '<span class="sb-quiet">niets in de 1,5 s ervoor</span>' :
-                        '<b>' + r.gap + ' ms</b> <span class="sb-quiet">na ' + escapeHtml(prevName(r.prev)) + '</span>';
-                    var second = Math.floor(r.cmd.arrival / 1000);
-                    var when = (second !== lastSecond ? fmtTime(r.cmd.arrival) : '') + fmtMs(r.cmd.arrival);
-                    lastSecond = second;
-                    var aimText = r.aim === null ? '<span class="sb-quiet">geen ruimte</span>' :
-                        '<span class="sb-ms">' + fmtMs(r.aim) + '</span> <span class="sb-quiet">±' + r.keep + ' ms</span>';
-                    var box = r.aim === null ? '' :
-                        '<input type="checkbox" class="sb-sel" data-x="' + t.x + '" data-y="' + t.y + '" data-aim="' + r.aim +
-                        '" data-id="' + (r.cmd.id || '') + '" data-pick="' + (lv.pick ? 1 : 0) + '" data-state="' + r.cover.state + '">';
-                    html += '<tr class="sb-l-' + lv.key + (i === 0 ? ' sb-first' : '') + '">' +
-                        '<td>' + box + '</td>' +
-                        '<td>' + (i === 0 ? '<b>' + escapeHtml(t.name) + '</b> <span class="sb-quiet">(' + t.x + '|' + t.y + ')</span>' : '') + '</td>' +
-                        '<td class="sb-ms">' + when + '</td>' +
-                        '<td>' + gapText + '</td>' +
-                        '<td><span class="sb-chip sb-' + lv.key + '" title="' + lv.tip + '">' + lv.text + '</span></td>' +
-                        '<td>' + aimText + '</td>' +
-                        '<td>' + coverHtml(r.cover) + '</td></tr>';
-                });
-            });
-            html += '</table>';
+                '<th>Dorp</th><th>Edel landt</th><th>Gat ervoor</th><th>Moeilijkheid</th><th>Dekking</th></tr>' + body + '</table>';
         }
         return html + '</div></div>';
     }
@@ -382,22 +414,37 @@
         board.find('.sb-toggle').on('click', function (e) {
             e.preventDefault();
             var body = board.find('.sb-body').toggle();
-            $(this).text(body.is(':visible') ? 'Inklappen' : 'Uitklappen');
+            $(this).text(body.is(':visible') ? '▲' : '▼');
         });
         board.find('.sb-gear').on('click', function (e) {
             e.preventDefault();
             board.find('.sb-settings').toggle();
         });
         board.find('.sb-set').on('change', function () {
-            var key = $(this).data('key');
-            SETTINGS[key] = key === 'aimMode' ? $(this).val() : Math.max(0, parseInt($(this).val(), 10) || 0);
+            SETTINGS[$(this).data('key')] = Math.max(0, parseInt($(this).val(), 10) || 0);
             saveSettings();
             run(inDialog, true);
+        });
+        board.find('.sb-chk').on('change', function () {
+            var group = $(this).data('group');
+            SETTINGS[group] = board.find('.sb-chk[data-group="' + group + '"]:checked').get().map(function (el) { return el.value; });
+            saveSettings();
+            run(inDialog, true);
+        });
+        board.find('.sb-auto').on('change', function () {
+            SETTINGS.autoRefresh = this.checked;
+            saveSettings();
         });
         board.find('.sb-reset').on('click', function (e) {
             e.preventDefault();
             try { localStorage.removeItem(SETTINGS_KEY); } catch (err) { /* nothing stored */ }
             SETTINGS = loadSettings();
+            run(inDialog, true);
+        });
+        board.find('.sb-filter a').on('click', function (e) {
+            e.preventDefault();
+            SETTINGS.filter = $(this).data('filter');
+            saveSettings();
             run(inDialog, true);
         });
         board.find('.sb-all').on('change', function () {
@@ -407,36 +454,36 @@
             e.preventDefault();
             board.find('.sb-sel').each(function () {
                 var d = $(this).data();
-                $(this).prop('checked', d.state !== 'covered' && d.pick === 1);
+                $(this).prop('checked', SETTINGS.pickLevels.indexOf(d.level) !== -1 &&
+                    SETTINGS.pickStates.indexOf(d.state) !== -1);
             });
         });
         board.find('.sb-calc').on('click', function (e) {
             e.preventDefault();
             var lines = board.find('.sb-sel:checked').get().map(function (el) {
                 var d = $(el).data();
-                return d.x + '|' + d.y + ',' + fmtIso(+d.aim) + (d.id ? ',' + d.id : '');
+                return d.x + '|' + d.y + ',' + fmtIso(+d.arr) + (d.id ? ',' + d.id : '');
             });
             if (!lines.length) return UI.ErrorMessage('Vink eerst de edels aan die je wilt snipen.');
             sendToCalculator(lines.join('\n'));
         });
+        board.find('.sb-rename').on('click', function (e) {
+            e.preventDefault();
+            renameCovered(board, inDialog);
+        });
         board.find('.sb-refresh').on('click', function (e) {
             e.preventDefault();
-            $(this).addClass('btn-disabled').text('Bezig...');
-            $.get(supportUrl()).done(function (page) {
-                saveSupports(readSupports(wrap(page)));
-                run(inDialog, true);
-            }).fail(function () {
-                UI.ErrorMessage('Supportbevelen konden niet worden opgehaald.');
-                run(inDialog, true);
-            });
+            refreshSupports(function () { run(inDialog, true); });
         });
     }
 
     function show(trains, supports, inDialog) {
         ensureCss();
-        var settingsOpen = $('#' + BOARD_ID + ' .sb-settings').is(':visible');
-        $('#' + BOARD_ID).remove();
-        var html = boardHtml(trains, supports, inDialog);
+        var old = $('#' + BOARD_ID);
+        var settingsOpen = old.find('.sb-settings').is(':visible');
+        var collapsed = old.length ? !old.find('.sb-body').is(':visible') : false;
+        old.remove();
+        var html = boardHtml(trains, supports, inDialog, collapsed && !inDialog);
         if (inDialog) {
             Dialog.show(DIALOG_ID, html);
         } else {
@@ -448,12 +495,52 @@
         bind(board, inDialog);
     }
 
+    function refreshSupports(done) {
+        $('#' + BOARD_ID + ' .sb-refresh').text('…');
+        $.get(supportUrl()).done(function (page) {
+            saveSupports(readSupports(wrap(page)));
+        }).fail(function () {
+            UI.ErrorMessage('Supportbevelen konden niet worden opgehaald.');
+        }).always(done);
+    }
+
+    // ---------------------------------------------------------------- rename
+    // Covered nobles get "Edel SNIPE OK [n ms]" through the game's own rename
+    // request (the pencil next to an incoming), one per noble, 250 ms apart.
+    // The label keeps "Edel" at the front, so the board still reads it as a noble.
+
+    function renameCovered(board, inDialog) {
+        var todo = board.find('.sb-sel').get().map(function (el) { return $(el).data(); }).filter(function (d) {
+            return d.state === 'covered' && d.id && !/snipe\s*ok/i.test(d.label || '');
+        });
+        if (!todo.length) return UI.InfoMessage('Geen gedekte edels om te hernoemen.');
+        var done = 0, failed = 0;
+        (function next(i) {
+            if (i >= todo.length) {
+                UI.SuccessMessage(done + ' edel(s) hernoemd' + (failed ? ', ' + failed + ' mislukt' : '') + '.');
+                cachedIncomings = null;
+                run(inDialog, !inDialog);
+                return;
+            }
+            var d = todo[i];
+            var label = 'Edel SNIPE OK [' + Math.abs(+d.delta) + ' ms]';
+            TribalWars.post('info_command', {ajaxaction: 'edit_other_comment', id: d.id}, {text: label},
+                function () {
+                    done++;
+                    // The table on this page shows the new label straight away.
+                    $('.quickedit[data-id="' + d.id + '"] .quickedit-label').text(' ' + label + ' ');
+                    setTimeout(function () { next(i + 1); }, 250);
+                },
+                function () { failed++; setTimeout(function () { next(i + 1); }, 250); });
+        })(0);
+    }
+
     // ---------------------------------------------------------------- snipe calculator
     // Toxic Donut's Snipe Calculator imports "x|y,YYYY-MM-DDTHH:MM:SS.mmm,commandId"
-    // lines. It only opens on the incomings page, so from anywhere else the
-    // lines are parked and the incomings page is opened; the board picks them
-    // up there when it runs. The lines also go to the clipboard, so a paste
-    // into its Import dialog always works.
+    // lines; the time is the noble's own arrival. It only opens on the incomings
+    // page, so from anywhere else the lines are parked and the incomings page is
+    // opened; the board picks them up there when it runs. The lines also go to
+    // the clipboard, so a paste into its Import dialog always works.
 
     function sendToCalculator(text) {
         copyText(text);
@@ -522,20 +609,25 @@
     // inDialog: show in a window (any screen) instead of above the table.
     // reuse: keep the incomings already read (settings change, refresh).
     function run(inDialog, reuse) {
-        var supports = loadSupports();
-        if (!inDialog) {
-            show(analyse(readIncomings($(document)), supports, serverNowMs()), supports, false);
-            return;
-        }
-        if (reuse && cachedIncomings) {
-            show(analyse(cachedIncomings, supports, serverNowMs()), supports, true);
-            return;
-        }
-        $.get(incomingsUrl()).done(function (page) {
-            cachedIncomings = readIncomings(wrap(page));
-            show(analyse(cachedIncomings, supports, serverNowMs()), supports, true);
-        }).fail(function () {
-            UI.ErrorMessage('De aanvallenpagina kon niet worden opgehaald.');
+        var draw = function (incomings) {
+            var supports = loadSupports();
+            show(analyse(incomings, supports, serverNowMs()), supports, inDialog);
+        };
+        var withIncomings = function (cb) {
+            if (!inDialog) return cb(readIncomings($(document)));
+            if (reuse && cachedIncomings) return cb(cachedIncomings);
+            $.get(incomingsUrl()).done(function (page) {
+                cachedIncomings = readIncomings(wrap(page));
+                cb(cachedIncomings);
+            }).fail(function () {
+                UI.ErrorMessage('De aanvallenpagina kon niet worden opgehaald.');
+            });
+        };
+        withIncomings(function (incomings) {
+            draw(incomings);
+            // A fresh board fetches its coverage once (setting); reruns from a
+            // click on the board itself do not.
+            if (!reuse && SETTINGS.autoRefresh) refreshSupports(function () { draw(incomings); });
         });
     }
 
@@ -568,14 +660,14 @@
             });
     }
 
-    // Loaded automatically (script library) the board only opens by itself on
-    // the incomings page; elsewhere it just adds the button. A second run on
-    // the same page is a click on the quickbar entry: then it opens.
+    // Loaded automatically the board only opens by itself on the incomings
+    // page; elsewhere it just adds the button. A second run on the same page
+    // is a click on the quickbar entry: then it opens.
     var clicked = window.__snipeBoardLoaded === VERSION;
     window.__snipeBoardLoaded = VERSION;
     addFab();
     if (onIncomingsPage()) {
-        run(false);
+        if (!clicked || !$('#' + BOARD_ID).length) run(false);
         var pending = null;
         try { pending = sessionStorage.getItem(PENDING_KEY); sessionStorage.removeItem(PENDING_KEY); } catch (e) { /* none */ }
         if (pending) openCalculator(pending);
