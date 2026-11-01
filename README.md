@@ -24,10 +24,10 @@ Het script verstuurt en annuleert nooit iets. Hernoemen gebeurt alleen als je op
 ## Laden
 
 ```
-javascript: $.getScript('https://cdn.jsdelivr.net/gh/LazyTurtleStyle/tw-snipe-board@v1.5/snipe_board.js');
+javascript: $.getScript('https://cdn.jsdelivr.net/gh/LazyTurtleStyle/tw-snipe-board@v1.6/snipe_board.js');
 ```
 
-Gebruik een versienummer (`@v1.5`): `@main` kan bij jsDelivr tot 12 uur een oude versie blijven geven.
+Gebruik een versienummer (`@v1.6`): `@main` kan bij jsDelivr tot 12 uur een oude versie blijven geven.
 Op de aanvallenpagina staat het board boven de tabel. Elders zet het script een edel-knop in de questlijst links;
 die opent het board in een venster. Met automatisch laden opent het board elders niet vanzelf.
 

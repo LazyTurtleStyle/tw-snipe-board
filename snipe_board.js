@@ -11,7 +11,7 @@
 (function () {
     'use strict';
 
-    var VERSION = '1.5';
+    var VERSION = '1.6';
     var LEVELS = {easy: 'Makkelijk', mid: 'Gemiddeld', hard: 'Moeilijk', free: 'Vrij'};
     var STATES = {open: 'SNIPE THIS', covered: 'SNIPE OK'};
     var DEFAULTS = {
@@ -310,7 +310,7 @@
         '#snipe-board .sb-bad{color:#a8322a;font-weight:bold}' +
         '#snipe-board .sb-quiet{color:#7a6a4a}' +
         '#snipe-board .sb-ms{font-family:monospace;font-size:12px}' +
-        '#' + FAB_ID + '{background-size:24px !important;background-position:center !important;' +
+        '#' + FAB_ID + '{background-size:22px 22px !important;background-position:center !important;' +
             'background-repeat:no-repeat !important;cursor:pointer}';
 
     // Versioned, so an older copy that already ran on this page (its style
@@ -347,6 +347,10 @@
         return '<span class="sb-this">SNIPE THIS</span>';
     }
 
+    function dialogWidth() {
+        return Math.max(600, Math.min(1000, $(window).width() - 120));
+    }
+
     function boardHtml(trains, supports, inDialog, collapsed) {
         var nobles = 0, covered = 0;
         trains.forEach(function (t) {
@@ -357,7 +361,7 @@
             '<span' + (age >= SETTINGS.staleMin ? ' class="sb-stale"' : '') + '>' +
             fmtTime(supports.at).slice(0, 5) + ' laatste refresh</span>';
         var f = SETTINGS.filter;
-        var html = '<div id="' + BOARD_ID + '"' + (inDialog ? ' style="width:' + Math.min(980, $(window).width() - 80) + 'px"' : '') + '>' +
+        var html = '<div id="' + BOARD_ID + '"' + (inDialog ? ' style="width:' + dialogWidth() + 'px"' : '') + '>' +
             '<div class="sb-head"><span class="sb-title">Snipe Board <span class="sb-quiet" style="font-weight:normal;font-size:10px">v' + VERSION + '</span></span>' +
             '<span class="sb-icons">' +
                 '<a href="#" class="btn sb-refresh" title="Dekking verversen">✔</a>' +
@@ -486,6 +490,10 @@
         var html = boardHtml(trains, supports, inDialog, collapsed && !inDialog);
         if (inDialog) {
             Dialog.show(DIALOG_ID, html);
+            // The game's popup has its own max width and scrolls sideways
+            // past it; widen the box to the board instead.
+            $('#popup_box_' + DIALOG_ID).css({width: dialogWidth() + 40 + 'px', 'max-width': 'none'})
+                .find('.popup_box_content').css({'overflow-x': 'visible', 'max-width': 'none'});
         } else {
             var anchor = $('#incomings_table').closest('form');
             (anchor.length ? anchor : $('#incomings_table')).before(html);
@@ -644,7 +652,8 @@
             (host.length ? host : $('body')).prepend('<div style="position:fixed;"><div id="questlog" class="questlog"></div></div>');
             log = $('#questlog');
         }
-        var icon = (window.image_base || '') + 'unit/unit_snob.png';
+        // The 60px unit portrait scaled down stays sharp; the 18px icon blurs.
+        var icon = (window.image_base || '') + 'unit_big/snob.png';
         $('<div id="' + FAB_ID + '" class="quest opened" title="Snipe Board v' + VERSION + '">')
             .data('version', VERSION)
             .css('background-image', 'url(' + icon + ')')

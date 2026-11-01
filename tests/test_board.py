@@ -125,7 +125,7 @@ async def main():
         imported = await page.evaluate('window.__imported')
         check('calculator gets the nobles own times', (imported or '').split('\n') == EXPECT_IMPORT, imported)
         # settings: vertical rows, ticking "Moeilijk" changes the button and the pick
-        await page.evaluate("$('#d_x').remove()")
+        await page.evaluate("$('#popup_box_x').remove()")
         await page.click('#snipe-board .sb-gear')
         rows = await page.locator('#snipe-board .sb-settings .sb-row').count()
         check('settings one per row', rows == 6, rows)
@@ -157,7 +157,10 @@ async def main():
         await page.evaluate("$('#snipe-board-fab').trigger('click')")  # no game CSS here, so it has no size
         await page.wait_for_timeout(800)
         check('button opens the board, fetching incomings', await page.locator('#snipe-board tr').count() == 9)
-        await page.evaluate("$('#d_snipe_board_dialog').remove()")
+        sw = await page.evaluate("(function(c){return [c.scrollWidth, c.clientWidth]})($('#popup_box_snipe_board_dialog .popup_box_content')[0])")
+        check('window wide enough, no sideways scroll', sw[0] <= sw[1], sw)
+        check('button uses the sharp 60px portrait', 'unit_big/snob.png' in await page.evaluate("$('#snipe-board-fab').css('background-image')"))
+        await page.evaluate("$('#popup_box_snipe_board_dialog').remove()")
         await page.add_script_tag(content=JS)
         await page.wait_for_timeout(800)
         check('second run (quickbar click) opens it too', await page.locator('#snipe-board tr').count() == 9)
