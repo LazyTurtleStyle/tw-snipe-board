@@ -137,6 +137,12 @@ async def main():
         await page.wait_for_timeout(800)
         check('second run (quickbar click) opens it too', await page.locator('#snipe-board tr').count() == 9)
         check('still one button', await page.locator('#snipe-board-fab').count() == 1)
+        # an older copy ran first on this page: its edge-pinned button and style must go
+        await page.evaluate("$('#snipe-board-fab').remove(); window.__snipeBoardLoaded = true; $('<style id=\\'snipe-board-css\\'>#snipe-board-fab{position:fixed;left:0}</style>').appendTo('head'); $('<div id=\\'snipe-board-fab\\'>').appendTo('body');")
+        await page.add_script_tag(content=JS)
+        await page.wait_for_timeout(300)
+        check('old button replaced by one in the quest column', await page.locator('#questlog #snipe-board-fab').count() == 1 and await page.locator('#snipe-board-fab').count() == 1)
+        check('old style removed', await page.locator('#snipe-board-css').count() == 0)
         check('no page errors', not errors, errors)
         await browser.close()
 

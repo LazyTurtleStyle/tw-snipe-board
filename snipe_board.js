@@ -1,5 +1,5 @@
 /*
- * Snipe Board v1.3 - per edeltrein: het gat voor elke edel, de moeilijkheid,
+ * Snipe Board v1.4 - per edeltrein: het gat voor elke edel, de moeilijkheid,
  * het mikpunt en de dekking door je eigen supports.
  *
  * Gebruik: in de snellijst zetten (of in de scriptbibliotheek, zodat het op
@@ -25,6 +25,7 @@
     };
     var TD_CALC = 'https://media.innogamescdn.com/com_DS_NL/scripts/Toxic-Donuts-Snipe-Calculator._206313.js';
 
+    var VERSION = '1.4';
     var BOARD_ID = 'snipe-board';
     var FAB_ID = 'snipe-board-fab';
     var DIALOG_ID = 'snipe_board_dialog';
@@ -297,8 +298,12 @@
         '#' + FAB_ID + '{background-size:24px !important;background-position:center !important;' +
             'background-repeat:no-repeat !important;cursor:pointer}';
 
+    // Versioned, so an older copy that already ran on this page (its style
+    // pinned the button to the screen edge) cannot leave its look behind.
     function ensureCss() {
-        if (!$('#snipe-board-css').length) $('<style id="snipe-board-css">').text(CSS).appendTo('head');
+        var id = 'snipe-board-css-' + VERSION.replace('.', '-');
+        $('style[id^="snipe-board-css"]').not('#' + id).remove();
+        if (!$('#' + id).length) $('<style id="' + id + '">').text(CSS).appendTo('head');
     }
 
     function settingsHtml() {
@@ -331,7 +336,7 @@
             age >= SETTINGS.staleMin ? '<span class="sb-stale">dekking ' + age + ' min oud, ververs</span>' :
             'dekking van ' + (age < 1 ? 'zojuist' : age + ' min geleden');
         var html = '<div id="' + BOARD_ID + '"' + (inDialog ? ' style="width:' + Math.min(980, $(window).width() - 80) + 'px"' : '') + '>' +
-            '<div class="sb-head"><span class="sb-title">Snipe Board</span>' +
+            '<div class="sb-head"><span class="sb-title">Snipe Board <span class="sb-quiet" style="font-weight:normal;font-size:10px">v' + VERSION + '</span></span>' +
             '<a href="#" class="btn sb-refresh">Dekking verversen</a>' +
             '<a href="#" class="btn sb-pick">Selecteer open</a>' +
             '<a href="#" class="btn sb-calc">Naar Snipe Calculator</a>' +
@@ -538,7 +543,9 @@
     // Donut's: appended to #questlog, which is created when the page has none.
     function addFab() {
         ensureCss();
-        if ($('#' + FAB_ID).length) return;
+        var old = $('#' + FAB_ID);
+        if (old.length && old.data('version') === VERSION) return;
+        old.remove();  // a button from an older version of the script
         var log = $('#questlog, #questlog_new').first();
         if (!log.length) {
             var host = $('.maincell').first();
@@ -546,7 +553,8 @@
             log = $('#questlog');
         }
         var icon = (window.image_base || '') + 'unit/unit_snob.png';
-        $('<div id="' + FAB_ID + '" class="quest opened" title="Snipe Board">')
+        $('<div id="' + FAB_ID + '" class="quest opened" title="Snipe Board v' + VERSION + '">')
+            .data('version', VERSION)
             .css('background-image', 'url(' + icon + ')')
             .append('<div class="quest_progress" style="width:0;"></div>')
             .appendTo(log)
@@ -563,8 +571,8 @@
     // Loaded automatically (script library) the board only opens by itself on
     // the incomings page; elsewhere it just adds the button. A second run on
     // the same page is a click on the quickbar entry: then it opens.
-    var clicked = !!window.__snipeBoardLoaded;
-    window.__snipeBoardLoaded = true;
+    var clicked = window.__snipeBoardLoaded === VERSION;
+    window.__snipeBoardLoaded = VERSION;
     addFab();
     if (onIncomingsPage()) {
         run(false);
