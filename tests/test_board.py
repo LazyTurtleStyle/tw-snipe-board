@@ -29,7 +29,8 @@ def row(cid, label, icon, tid, tname, x, y, player, arrival):
             '<a href="#"><span class="icon-container"><span><img src="https://x/graphic/%s.webp"></span></span>'
             '<span class="quickedit-label"> %s </span></a></span></span></td>'
             '<td><a href="/game.php?village=%d&screen=overview">%s (%d|%d) C45</a></td><td><a href="#">Herkomst</a></td>'
-            '<td><a href="#">%s</a></td><td>5.0</td><td>%s</td><td><span class="timer">1:00:00</span></td></tr>'
+            '<td><a href="#">%s</a></td><td>5.0</td><td>%s</td><td><span class="timer">1:00:00</span></td>'
+            '<td><a href="#"><img src="https://x/graphic/command/support.webp"></a></td></tr>'
             % (cid, icon, label, tid, tname, x, y, player, arrival))
 
 
@@ -118,6 +119,7 @@ async def main():
         text = await page.inner_text('#snipe-board')
         check('8 nobles, 1 OK, refreshed on open', '8 edels' in text and '1 OK' in text and 'laatste refresh' in text, text[:160])
         check('incoming support on the Alle tab is not a command', 'eigen' not in text and '.580' not in text, text[:400])
+        check('village name links to the village', await page.locator('#snipe-board a[href*="village=1&screen=overview"]').count() == 1)
         check('C-SNIPE noble skipped', '.810' not in text)
         check('covered noble shows SNIPE OK', 'SNIPE OK (-40 ms)' in text)
         check('support before anti-snipe flagged', 'support vóór anti-snipe (-32 ms)' in text)

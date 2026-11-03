@@ -11,7 +11,7 @@
 (function () {
     'use strict';
 
-    var VERSION = '1.9';
+    var VERSION = '1.10';
     var LEVELS = {easy: 'Makkelijk', mid: 'Gemiddeld', hard: 'Moeilijk', free: 'Vrij'};
     var STATES = {open: 'SNIPE THIS', covered: 'SNIPE OK'};
     var DEFAULTS = {
@@ -150,9 +150,12 @@
     function wrap(html) { return $('<div>').html(html); }
 
     function isSupportRow($row, own) {
-        if ($row.find('img[src*="command/support"], [data-command-type="support"]').length) return true;
+        // Only the command icon in the first cell says what it is: other
+        // cells carry icons of their own (the support-request button).
+        var cell = $row.children('td').eq(0);
+        if (cell.find('img[src*="command/support"]').length) return true;
         // our own command without an attack icon: support from one of our villages
-        return own && !$row.find('img[src*="command/attack"]').length;
+        return own && !cell.find('img[src*="command/attack"]').length;
     }
 
     function readIncomings($root) {
@@ -420,7 +423,8 @@
                     '" data-state="' + st + '" data-delta="' + (r.cover.delta || '') + '" data-label="' + escapeHtml(r.cmd.label) + '">';
                 body += '<tr class="sb-l-' + lv.key + (first ? ' sb-first' : '') + '">' +
                     '<td>' + box + '</td>' +
-                    '<td>' + (first ? '<b>' + escapeHtml(t.name) + '</b> <span class="sb-quiet">(' + t.x + '|' + t.y + ')</span>' : '') + '</td>' +
+                    '<td>' + (first ? '<a href="/game.php?village=' + t.target + '&screen=overview"><b>' + escapeHtml(t.name) + '</b></a> ' +
+                        '<a class="sb-quiet" href="/game.php?village=' + game_data.village.id + '&screen=info_village&id=' + t.target + '">(' + t.x + '|' + t.y + ')</a>' : '') + '</td>' +
                     '<td class="sb-ms">' + when + '</td>' +
                     '<td>' + gapText + '</td>' +
                     '<td><span class="sb-chip sb-' + lv.key + '" title="' + lv.tip + '">' + LEVELS[lv.key] + '</span></td>' +
