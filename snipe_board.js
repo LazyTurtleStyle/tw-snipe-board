@@ -11,7 +11,7 @@
 (function () {
     'use strict';
 
-    var VERSION = '1.8';
+    var VERSION = '1.9';
     var LEVELS = {easy: 'Makkelijk', mid: 'Gemiddeld', hard: 'Moeilijk', free: 'Vrij'};
     var STATES = {open: 'SNIPE THIS', covered: 'SNIPE OK'};
     var DEFAULTS = {
@@ -21,12 +21,13 @@
         pickStates: ['open'],
         filter: 'all',        // all | open | covered
         autoRefresh: true,    // dekking ophalen bij het openen van het board
+        zeroMsOk: false,      // support op dezelfde ms als de edel telt als SNIPE OK (een gok: 50/50)
         staleMin: 15,         // oudere dekking kleurt rood
         trainWindowMs: 1500,  // alleen bevelen binnen deze tijd voor een edel tellen als "ervoor"
         nobleLabels: ['edel', 'noble', 'snob'],
         ignoreLabels: ['c-snipe', 'c snipe', 'c- snipe', 'recap']
     };
-    var SAVED = ['easyMs', 'hardMs', 'pickLevels', 'pickStates', 'filter', 'autoRefresh'];
+    var SAVED = ['easyMs', 'hardMs', 'pickLevels', 'pickStates', 'filter', 'autoRefresh', 'zeroMsOk'];
     var TD_CALC = 'https://media.innogamescdn.com/com_DS_NL/scripts/Toxic-Donuts-Snipe-Calculator._206313.js';
 
     var BOARD_ID = 'snipe-board';
@@ -249,7 +250,9 @@
         var best = null, early = null;
         supports.list.forEach(function (s) {
             if (s.x !== noble.x || s.y !== noble.y) return;
-            if (s.arrival >= noble.arrival || s.arrival <= lo) return;
+            // On the noble's own millisecond it is a coin flip which goes first.
+            if (s.arrival > noble.arrival || s.arrival <= lo) return;
+            if (s.arrival === noble.arrival && !SETTINGS.zeroMsOk) return;
             if (prev && s.arrival <= prev.arrival) { early = s; return; }
             if (!best || s.arrival > best.arrival) best = s;
         });
@@ -355,11 +358,13 @@
             '<div class="sb-row"><span>Selecteer-knop: status</span>' + checks('pickStates', STATES, s.pickStates) + '</div>' +
             '<div class="sb-row"><span>Dekking</span><label><input type="checkbox" class="sb-auto"' + (s.autoRefresh ? ' checked' : '') +
                 '> automatisch verversen bij openen</label></div>' +
+            '<div class="sb-row"><span></span><label><input type="checkbox" class="sb-zero"' + (s.zeroMsOk ? ' checked' : '') +
+                '> 0 ms telt als SNIPE OK (gok: 50/50)</label></div>' +
             '<div class="sb-row"><span></span><a href="#" class="btn sb-reset">Standaard</a></div></div>';
     }
 
     function coverHtml(c) {
-        if (c.state === 'covered') return '<span class="sb-ok">✔ SNIPE OK (' + c.delta + ' ms)</span>';
+        if (c.state === 'covered') return '<span class="sb-ok">✔ SNIPE OK (' + (c.delta === 0 ? '0 ms · gok' : c.delta + ' ms') + ')</span>';
         if (c.state === 'early') return '<span class="sb-bad">⚠ SNIPE THIS · support vóór anti-snipe (' + c.delta + ' ms)</span>';
         if (c.state === 'unknown') return '<span class="sb-quiet">?</span>';
         return '<span class="sb-this">SNIPE THIS</span>';
@@ -456,6 +461,11 @@
         board.find('.sb-auto').on('change', function () {
             SETTINGS.autoRefresh = this.checked;
             saveSettings();
+        });
+        board.find('.sb-zero').on('change', function () {
+            SETTINGS.zeroMsOk = this.checked;
+            saveSettings();
+            run(inDialog, true);
         });
         board.find('.sb-reset').on('click', function (e) {
             e.preventDefault();

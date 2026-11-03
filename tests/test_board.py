@@ -60,6 +60,7 @@ PAGE = ('<html><head><meta charset="utf-8"></head><body>'
 SUP_URLS = []
 SUP = ('<html><body><table id="commands_table"><tr><th>Bevel</th><th>Herkomst</th><th>Aankomst</th><th>sp</th></tr>'
        '<tr class="nowrap"><td><span class="quickedit-label">549|403 [40 ms]</span></td><td>x</td><td>vandaag om ' + ms('22:26:03', 570) + '</td><td>1</td></tr>'
+       '<tr class="nowrap"><td><span class="quickedit-label">551|396 [0 ms]</span></td><td>x</td><td>vandaag om ' + ms('22:52:26', 687) + '</td><td>1</td></tr>'
        '<tr class="nowrap"><td><span class="quickedit-label">Ondersteuning voor Dorp C (546|403) C45</span></td><td>x</td><td>morgen om ' + ms('00:40:01', 455) + '</td><td>1</td></tr>'
        '<tr class="nowrap"><td><img src="x/command/return_support.webp">Terugkeer (549|403)</td><td>x</td><td>vandaag om ' + ms('22:26:03', 600) + '</td><td>1</td></tr>'
        '</table></body></html>')
@@ -135,13 +136,20 @@ async def main():
         await page.evaluate("$('#popup_box_x').remove()")
         await page.click('#snipe-board .sb-gear')
         rows = await page.locator('#snipe-board .sb-settings .sb-row').count()
-        check('settings one per row', rows == 6, rows)
+        check('settings one per row', rows == 7, rows)
         await page.check('#snipe-board .sb-chk[value=hard]')
         await page.wait_for_timeout(200)
         check('button follows the setting', 'Selecteer alles (SNIPE THIS)' in await page.inner_text('#snipe-board .sb-pick'))
         await page.click('#snipe-board .sb-pick')
         check('pick now includes the hard one', await page.eval_on_selector_all('#snipe-board .sb-sel:checked', 'els => els.length') == 7)
         await page.uncheck('#snipe-board .sb-chk[value=hard]')
+        # 0 ms: off by default, the setting turns it into SNIPE OK
+        check('0 ms is not OK by default', '0 ms · gok' not in await page.inner_text('#snipe-board'))
+        await page.check('#snipe-board .sb-zero')
+        await page.wait_for_timeout(200)
+        check('0 ms counts when ticked', 'SNIPE OK (0 ms · gok)' in await page.inner_text('#snipe-board'))
+        await page.uncheck('#snipe-board .sb-zero')
+        await page.wait_for_timeout(200)
         # filter
         await page.click('#snipe-board .sb-filter a[data-filter=covered]')
         await page.wait_for_timeout(200)
