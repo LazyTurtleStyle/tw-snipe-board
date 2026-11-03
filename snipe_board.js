@@ -11,7 +11,7 @@
 (function () {
     'use strict';
 
-    var VERSION = '1.6';
+    var VERSION = '1.7';
     var LEVELS = {easy: 'Makkelijk', mid: 'Gemiddeld', hard: 'Moeilijk', free: 'Vrij'};
     var STATES = {open: 'SNIPE THIS', covered: 'SNIPE OK'};
     var DEFAULTS = {
@@ -63,9 +63,17 @@
             '&screen=overview_villages&mode=incomings&subtype=attacks&page=-1';
     }
 
-    function supportUrl() {
+    // The commands overview lists only what left from villages in the
+    // current group, and snipes mostly leave from def villages. So it is read
+    // for all villages (group=0) and the player's own group is put back after.
+    function supportUrl(group) {
         return '/game.php?village=' + game_data.village.id +
-            '&screen=overview_villages&mode=commands&type=support&page=-1';
+            '&screen=overview_villages&mode=commands&type=support&page=-1&group=' + group;
+    }
+
+    function currentGroup() {
+        var g = game_data && game_data.group_id;
+        return g === undefined || g === null || g === '' ? '0' : String(g);
     }
 
     // ---------------------------------------------------------------- time
@@ -505,11 +513,15 @@
 
     function refreshSupports(done) {
         $('#' + BOARD_ID + ' .sb-refresh').text('…');
-        $.get(supportUrl()).done(function (page) {
+        var group = currentGroup();
+        $.get(supportUrl('0')).done(function (page) {
             saveSupports(readSupports(wrap(page)));
         }).fail(function () {
             UI.ErrorMessage('Supportbevelen konden niet worden opgehaald.');
-        }).always(done);
+        }).always(function () {
+            if (group === '0') return done();
+            $.get(supportUrl(group)).always(done);
+        });
     }
 
     // ---------------------------------------------------------------- rename

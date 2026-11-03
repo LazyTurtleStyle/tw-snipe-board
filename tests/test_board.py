@@ -55,6 +55,7 @@ PAGE = ('<html><head><meta charset="utf-8"></head><body>'
         '<form><table id="incomings_table" class="vis overview_table"><tr><th>Bevel</th><th>Doel</th><th>Herkomst</th>'
         '<th>Speler</th><th>Afstand</th><th>Aankomst</th><th>Komt aan in</th></tr>%s</table></form></body></html>'
         % ''.join(ROWS))
+SUP_URLS = []
 SUP = ('<html><body><table id="commands_table"><tr><th>Bevel</th><th>Herkomst</th><th>Aankomst</th><th>sp</th></tr>'
        '<tr class="nowrap"><td><span class="quickedit-label">549|403 [40 ms]</span></td><td>x</td><td>vandaag om ' + ms('22:26:03', 570) + '</td><td>1</td></tr>'
        '<tr class="nowrap"><td><span class="quickedit-label">Ondersteuning voor Dorp C (546|403) C45</span></td><td>x</td><td>morgen om ' + ms('00:40:01', 455) + '</td><td>1</td></tr>'
@@ -93,6 +94,9 @@ async def main():
             if 'Snipe-Calculator' in u:
                 return await route.fulfill(body=FAKE_TD, content_type='application/javascript')
             if 'type=support' in u:
+                SUP_URLS.append(u)
+                if 'group=0' not in u:  # the game filters on the group: none of ours left from it
+                    return await route.fulfill(body='<table id="commands_table"></table>', content_type='text/html')
                 return await route.fulfill(body=SUP, content_type='text/html')
             if state['other'] and 'mode=incomings' not in u:
                 return await route.fulfill(body=OTHER, content_type='text/html')
@@ -101,7 +105,7 @@ async def main():
 
         async def boot(screen):
             await page.add_script_tag(content=JQ)
-            await page.evaluate("window.game_data={world:'nl116',screen:'%s',player:{name:'Ik'},village:{id:1}};" % screen)
+            await page.evaluate("window.game_data={world:'nl116',screen:'%s',player:{name:'Ik'},village:{id:1},group_id:'17145'};" % screen)
             await page.add_script_tag(path=os.path.join(HERE, 'stub.js'))
             await page.add_script_tag(content=JS)
 
@@ -152,6 +156,8 @@ async def main():
         await page.goto('https://nl116.tribalwars.nl/game.php?village=1&screen=overview')
         await boot('overview')
         await page.wait_for_timeout(800)
+        check('supports read for all groups, own group put back',
+              any('group=0' in u for u in SUP_URLS) and any('group=17145' in u for u in SUP_URLS), SUP_URLS)
         check('button in the quest column', await page.locator('#questlog #snipe-board-fab').count() == 1)
         check('auto-load does not open the board elsewhere', await page.locator('#snipe-board').count() == 0)
         await page.evaluate("$('#snipe-board-fab').trigger('click')")  # no game CSS here, so it has no size
