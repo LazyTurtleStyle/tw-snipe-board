@@ -115,7 +115,12 @@ async def main():
 
         await page.goto('https://nl116.tribalwars.nl/game.php?village=1&screen=overview_villages&mode=incomings')
         await boot('overview_villages')
-        await page.wait_for_timeout(600)   # auto-refresh of the coverage on open
+        await page.wait_for_timeout(600)
+        check('starts folded up on page load', not await page.is_visible('#snipe-board .sb-body') and await page.inner_text('#snipe-board .sb-toggle') == '\u25bc')
+        check('no coverage fetch while folded', not SUP_URLS, SUP_URLS)
+        await page.click('#snipe-board .sb-toggle')
+        await page.wait_for_timeout(600)   # unfolding fetches the coverage
+        check('unfolds on click', await page.is_visible('#snipe-board .sb-body'))
         text = await page.inner_text('#snipe-board')
         check('8 nobles, 1 OK, refreshed on open', '8 edels' in text and '1 OK' in text and 'laatste refresh' in text, text[:160])
         check('incoming support on the Alle tab is not a command', 'eigen' not in text and '.580' not in text, text[:400])
@@ -163,6 +168,11 @@ async def main():
         await page.wait_for_timeout(600)
         check('rename covered noble', await page.evaluate('window.__renamed') == ['4=Edel SNIPE OK [40 ms]'], await page.evaluate('window.__renamed'))
         check('table label updated in place', 'Edel SNIPE OK [40 ms]' in await page.inner_text('#incomings_table'))
+        if await page.is_visible('#snipe-board .sb-body'):
+            await page.click('#snipe-board .sb-toggle')
+        await page.add_script_tag(content=JS)   # quickbar click on the incomings page
+        await page.wait_for_timeout(400)
+        check('quickbar click unfolds it', await page.is_visible('#snipe-board .sb-body'))
         check('collapse is an arrow', await page.inner_text('#snipe-board .sb-toggle') in ('\u25b2', '\u25bc'))
 
         state['other'] = True

@@ -11,7 +11,7 @@
 (function () {
     'use strict';
 
-    var VERSION = '1.10';
+    var VERSION = '1.11';
     var LEVELS = {easy: 'Makkelijk', mid: 'Gemiddeld', hard: 'Moeilijk', free: 'Vrij'};
     var STATES = {open: 'SNIPE THIS', covered: 'SNIPE OK'};
     var DEFAULTS = {
@@ -32,6 +32,8 @@
 
     var BOARD_ID = 'snipe-board';
     var FAB_ID = 'snipe-board-fab';
+    var startCollapsed = false;   // a board loaded with the incomings page starts folded up
+    var refreshOnExpand = false;  // its coverage refresh waits until it is unfolded
     var DIALOG_ID = 'snipe_board_dialog';
     var STORE_KEY = 'snipeboard_' + game_data.world + '_supports';
     var SETTINGS_KEY = 'snipeboard_' + game_data.world + '_settings';
@@ -446,6 +448,10 @@
             e.preventDefault();
             var body = board.find('.sb-body').toggle();
             $(this).text(body.is(':visible') ? '▲' : '▼');
+            if (body.is(':visible') && refreshOnExpand) {
+                refreshOnExpand = false;
+                refreshSupports(function () { run(false, true); });
+            }
         });
         board.find('.sb-gear').on('click', function (e) {
             e.preventDefault();
@@ -517,7 +523,7 @@
         ensureCss();
         var old = $('#' + BOARD_ID);
         var settingsOpen = old.find('.sb-settings').is(':visible');
-        var collapsed = old.length ? !old.find('.sb-body').is(':visible') : false;
+        var collapsed = old.length ? !old.find('.sb-body').is(':visible') : startCollapsed;
         old.remove();
         var html = boardHtml(trains, supports, inDialog, collapsed && !inDialog);
         if (inDialog) {
@@ -671,7 +677,10 @@
             draw(incomings);
             // A fresh board fetches its coverage once (setting); reruns from a
             // click on the board itself do not.
-            if (!reuse && SETTINGS.autoRefresh) refreshSupports(function () { draw(incomings); });
+            if (reuse || !SETTINGS.autoRefresh) return;
+            // Folded up it shows nothing, so the refresh waits for the unfold.
+            if (!inDialog && !$('#' + BOARD_ID + ' .sb-body').is(':visible')) { refreshOnExpand = true; return; }
+            refreshSupports(function () { draw(incomings); });
         });
     }
 
@@ -698,11 +707,17 @@
             .on('click', function () {
                 if (onIncomingsPage()) {
                     if (!$('#' + BOARD_ID).length) run(false);
+                    expand();
                     $('html, body').animate({scrollTop: $('#' + BOARD_ID).offset().top - 60}, 200);
                 } else {
                     run(true);
                 }
             });
+    }
+
+    function expand() {
+        var board = $('#' + BOARD_ID);
+        if (board.length && !board.find('.sb-body').is(':visible')) board.find('.sb-toggle').trigger('click');
     }
 
     // Loaded automatically the board only opens by itself on the incomings
@@ -712,7 +727,11 @@
     window.__snipeBoardLoaded = VERSION;
     addFab();
     if (onIncomingsPage()) {
+        // Loaded with the page it starts folded up (a busy incomings page is
+        // long enough already); the quickbar entry or the button unfolds it.
+        startCollapsed = !clicked;
         if (!clicked || !$('#' + BOARD_ID).length) run(false);
+        if (clicked) expand();
         var pending = null;
         try { pending = sessionStorage.getItem(PENDING_KEY); sessionStorage.removeItem(PENDING_KEY); } catch (e) { /* none */ }
         if (pending) openCalculator(pending);
