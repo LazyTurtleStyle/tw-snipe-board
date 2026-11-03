@@ -11,7 +11,7 @@
 (function () {
     'use strict';
 
-    var VERSION = '1.7';
+    var VERSION = '1.8';
     var LEVELS = {easy: 'Makkelijk', mid: 'Gemiddeld', hard: 'Moeilijk', free: 'Vrij'};
     var STATES = {open: 'SNIPE THIS', covered: 'SNIPE OK'};
     var DEFAULTS = {
@@ -148,6 +148,12 @@
     // A fetched page wrapped, because its tables are top-level nodes that .find skips.
     function wrap(html) { return $('<div>').html(html); }
 
+    function isSupportRow($row, own) {
+        if ($row.find('img[src*="command/support"], [data-command-type="support"]').length) return true;
+        // our own command without an attack icon: support from one of our villages
+        return own && !$row.find('img[src*="command/attack"]').length;
+    }
+
     function readIncomings($root) {
         var out = [];
         $root.find('#incomings_table tr.nowrap').each(function () {
@@ -161,12 +167,16 @@
             var tc = RE_COORD.exec(targetText);
             var arr = parseArrival(cells.eq(5).text());
             if (!tid || !tc || arr === null) return;
+            // The "Alle" tab lists incoming support in the same table. A
+            // support is coverage, never a command in front of a noble.
+            var own = $.trim(cells.eq(3).text()) === game_data.player.name;
+            if (isSupportRow($(this), own)) return;
             out.push({
                 id: cells.eq(0).find('.quickedit').data('id'),
                 label: label,
                 noble: startsWithAny(label, SETTINGS.nobleLabels) || snobIcon,
                 ignored: hasAny(label, SETTINGS.ignoreLabels),
-                own: $.trim(cells.eq(3).text()) === game_data.player.name,
+                own: own,
                 target: tid,
                 targetName: targetText.replace(/\s*\(\d{1,3}\|\d{1,3}\).*$/, ''),
                 x: +tc[1], y: +tc[2],

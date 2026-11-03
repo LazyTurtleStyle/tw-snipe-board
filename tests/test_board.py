@@ -26,7 +26,7 @@ def ms(t, m):
 
 def row(cid, label, icon, tid, tname, x, y, player, arrival):
     return ('<tr class="nowrap row_a"><td><span class="quickedit" data-id="%d"><span class="quickedit-content">'
-            '<a href="#"><span class="icon-container"><span><img src="https://x/graphic/unit/tiny/%s.webp"></span></span>'
+            '<a href="#"><span class="icon-container"><span><img src="https://x/graphic/%s.webp"></span></span>'
             '<span class="quickedit-label"> %s </span></a></span></span></td>'
             '<td><a href="/game.php?village=%d&screen=overview">%s (%d|%d) C45</a></td><td><a href="#">Herkomst</a></td>'
             '<td><a href="#">%s</a></td><td>5.0</td><td>%s</td><td><span class="timer">1:00:00</span></td></tr>'
@@ -35,20 +35,22 @@ def row(cid, label, icon, tid, tname, x, y, player, arrival):
 
 E_ = 'Vijand'
 ROWS = [
-    row(1, 'Bijl', 'axe', 1, 'Dorp A', 549, 403, E_, 'vandaag om ' + ms('22:26:03', 440)),
-    row(2, 'Edel >>>> SNIPE THIS <<<<', 'snob', 1, 'Dorp A', 549, 403, E_, 'vandaag om ' + ms('22:26:03', 510)),
-    row(3, 'Bijl', 'axe', 1, 'Dorp A', 549, 403, E_, 'vandaag om ' + ms('22:26:03', 531)),
-    row(4, 'Edel', 'snob', 1, 'Dorp A', 549, 403, E_, 'vandaag om ' + ms('22:26:03', 610)),
-    row(5, 'ZC', 'heavy', 1, 'Dorp A', 549, 403, E_, 'vandaag om ' + ms('22:26:03', 699)),
-    row(6, 'Edel', 'snob', 1, 'Dorp A', 549, 403, E_, 'vandaag om ' + ms('22:26:03', 710)),
-    row(7, 'Edel - C-SNIPE', 'snob', 1, 'Dorp A', 549, 403, E_, 'vandaag om ' + ms('22:26:03', 810)),
-    row(8, 'Edel', 'snob', 2, 'Dorp B', 551, 396, E_, 'vandaag om ' + ms('22:52:26', 687)),
-    row(9, 'Edel', 'snob', 2, 'Dorp B', 551, 396, E_, 'vandaag om ' + ms('23:10:28', 684)),
-    row(10, 'Ram', 'ram', 3, 'Dorp C', 546, 403, E_, 'morgen om ' + ms('00:40:01', 327)),
-    row(11, 'Edel', 'snob', 3, 'Dorp C', 546, 403, E_, 'morgen om ' + ms('00:40:01', 387)),
-    row(12, 'Zwaard', 'sword', 3, 'Dorp C', 546, 403, E_, 'morgen om ' + ms('00:40:01', 466)),
-    row(13, 'Edel', 'snob', 3, 'Dorp C', 546, 403, E_, 'morgen om ' + ms('00:40:01', 487)),
-    row(14, 'Edel', 'snob', 4, 'Dorp D', 549, 410, E_, 'op 02.11. om ' + ms('13:58:12', 917)),
+    row(1, 'Bijl', 'unit/tiny/axe', 1, 'Dorp A', 549, 403, E_, 'vandaag om ' + ms('22:26:03', 440)),
+    row(2, 'Edel >>>> SNIPE THIS <<<<', 'unit/tiny/snob', 1, 'Dorp A', 549, 403, E_, 'vandaag om ' + ms('22:26:03', 510)),
+    row(3, 'Bijl', 'unit/tiny/axe', 1, 'Dorp A', 549, 403, E_, 'vandaag om ' + ms('22:26:03', 531)),
+    row(4, 'Edel', 'unit/tiny/snob', 1, 'Dorp A', 549, 403, E_, 'vandaag om ' + ms('22:26:03', 610)),
+    row(5, 'ZC', 'unit/tiny/heavy', 1, 'Dorp A', 549, 403, E_, 'vandaag om ' + ms('22:26:03', 699)),
+    row(6, 'Edel', 'unit/tiny/snob', 1, 'Dorp A', 549, 403, E_, 'vandaag om ' + ms('22:26:03', 710)),
+    row(7, 'Edel - C-SNIPE', 'unit/tiny/snob', 1, 'Dorp A', 549, 403, E_, 'vandaag om ' + ms('22:26:03', 810)),
+    row(8, 'Edel', 'unit/tiny/snob', 2, 'Dorp B', 551, 396, E_, 'vandaag om ' + ms('22:52:26', 687)),
+    row(9, 'Edel', 'unit/tiny/snob', 2, 'Dorp B', 551, 396, E_, 'vandaag om ' + ms('23:10:28', 684)),
+    row(10, 'Ram', 'unit/tiny/ram', 3, 'Dorp C', 546, 403, E_, 'morgen om ' + ms('00:40:01', 327)),
+    row(11, 'Edel', 'unit/tiny/snob', 3, 'Dorp C', 546, 403, E_, 'morgen om ' + ms('00:40:01', 387)),
+    row(12, 'Zwaard', 'unit/tiny/sword', 3, 'Dorp C', 546, 403, E_, 'morgen om ' + ms('00:40:01', 466)),
+    row(13, 'Edel', 'unit/tiny/snob', 3, 'Dorp C', 546, 403, E_, 'morgen om ' + ms('00:40:01', 487)),
+    # the "Alle" tab: our own support in the same table, 30 ms before noble 4
+    row(15, '549|403 [40 ms]', 'command/support', 1, 'Dorp A', 549, 403, 'Ik', 'vandaag om ' + ms('22:26:03', 580)),
+    row(14, 'Edel', 'unit/tiny/snob', 4, 'Dorp D', 549, 410, E_, 'op 02.11. om ' + ms('13:58:12', 917)),
 ]
 PAGE = ('<html><head><meta charset="utf-8"></head><body>'
         '<span id="serverTime">21:50:00</span> <span id="serverDate">31/10/2026</span>'
@@ -114,6 +116,7 @@ async def main():
         await page.wait_for_timeout(600)   # auto-refresh of the coverage on open
         text = await page.inner_text('#snipe-board')
         check('8 nobles, 1 OK, refreshed on open', '8 edels' in text and '1 OK' in text and 'laatste refresh' in text, text[:160])
+        check('incoming support on the Alle tab is not a command', 'eigen' not in text and '.580' not in text, text[:400])
         check('C-SNIPE noble skipped', '.810' not in text)
         check('covered noble shows SNIPE OK', 'SNIPE OK (-40 ms)' in text)
         check('support before anti-snipe flagged', 'support vóór anti-snipe (-32 ms)' in text)
